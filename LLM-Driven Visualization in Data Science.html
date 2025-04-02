@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM-Driven Visualization in Data Science</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #3a6ea5;
+            --secondary-color: #004e98;
+            --tertiary-color: #ff6700;
+            --background-color: #f8f9fa;
+            --text-color: #333;
+            --light-gray: #e9ecef;
+            --medium-gray: #ced4da;
+            --dark-gray: #6c757d;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background-color: white;
+            padding: 2rem 0;
+            box-shadow: var(--shadow);
+        }
+
+        h1 {
+            color: var(--secondary-color);
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            font-size: clamp(1.4rem, 3vw, 2rem);
+            margin: 2rem 0 1rem;
+            border-bottom: 2px solid var(--light-gray);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            color: var(--primary-color);
+            font-size: clamp(1.2rem, 2.5vw, 1.5rem);
+            margin: 1.5rem 0 1rem;
+        }
+
+        p {
+            margin-bottom: 1rem;
+            font-size: clamp(0.9rem, 2vw, 1rem);
+        }
+
+        .tabs-container {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background-color: white;
+            padding: 10px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: thin;
+            scrollbar-color: var(--medium-gray) transparent;
+        }
+
+        .tabs {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 5px;
+            padding: 0 10px;
+        }
+
+        .tab {
+            padding: 10px 15px;
+            background-color: var(--light-gray);
+            color: var(--text-color);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: clamp(0.7rem, 1.8vw, 0.9rem);
+            font-weight: 600;
+            border: none;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tab.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .tab:hover {
+            background-color: var(--medium-gray);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px 0;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .chart-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            height: 400px;
+            position: relative;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .chart-container:hover {
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin-bottom: 20px;
+            animation: slideIn 0.5s ease-out;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+
+        .card:hover {
+            transform: translateY(-5px) rotateX(2deg);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .expandable-section {
+            margin-bottom: 20px;
+        }
+
+        .expandable-header {
+            background-color: var(--light-gray);
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: var(--transition);
+        }
+
+        .expandable-header:hover {
+            background-color: var(--medium-gray);
+        }
+
+        .expandable-header h3 {
+            margin: 0;
+        }
+
+        .expandable-indicator {
+            font-size: 1.2rem;
+            transition: var(--transition);
+        }
+
+        .expandable-content {
+            padding: 15px;
+            background-color: white;
+            border-radius: 0 0 8px 8px;
+            display: block;
+            transition: max-height 0.3s ease-out;
+            max-height: 0;
+            overflow: hidden;
+        }
+
+        .expandable-section.collapsed .expandable-content {
+            display: none;
+        }
+
+        .expandable-section:not(.collapsed) .expandable-content {
+            max-height: 2000px;
+        }
+
+        .expandable-section.collapsed .expandable-indicator {
+            transform: rotate(-90deg);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            box-shadow: var(--shadow);
+            overflow-x: auto;
+            display: block;
+        }
+
+        table thead {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        table th, table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--light-gray);
+        }
+
+        table tbody tr:nth-child(even) {
+            background-color: var(--light-gray);
+        }
+
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 300px;
+            }
+            
+            table th, table td {
+                padding: 8px 10px;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .chart-container {
+                height: 250px;
+            }
+            
+            .tabs {
+                gap: 2px;
+            }
+            
+            .tab {
+                padding: 8px 10px;
+            }
+            
+            table th, table td {
+                padding: 6px 8px;
+                font-size: 0.8rem;
+            }
+        }
+
+        .highlight {
+            background-color: rgba(255, 103, 0, 0.1);
+            border-left: 4px solid var(--tertiary-color);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .highlight:hover {
+            background-color: rgba(255, 103, 0, 0.2);
+        }
+
+        .highlight::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.2),
+                transparent
+            );
+            transition: left 0.5s ease;
+        }
+
+        .highlight:hover::after {
+            left: 100%;
+        }
+
+        .tag {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            transition: transform 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .tag:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .tag::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+        
+        .tag:hover::before {
+            transform: translateX(100%);
+        }
+        
+        code {
+            background-color: var(--light-gray);
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+        }
+        
+        pre {
+            background-color: var(--light-gray);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        /* Enhanced bullet points animation */
+        ul li, ol li {
+            position: relative;
+            padding-left: 25px;
+            margin: 10px 0;
+            opacity: 0;
+            transform: translateX(-20px);
+            animation: slideInList 0.5s ease forwards;
+        }
+
+        ul li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 8px;
+            height: 8px;
+            background: var(--tertiary-color);
+            border-radius: 50%;
+            transform: translateY(-50%);
+            transition: all 0.3s ease;
+        }
+
+        ul li:hover::before {
+            transform: translateY(-50%) scale(1.5);
+            box-shadow: 0 0 10px var(--tertiary-color);
+        }
+
+        /* Staggered animation for list items */
+        @keyframes slideInList {
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Ripple effect for buttons */
+        .tab {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.7);
+            transform: scale(0);
+            animation: ripple 0.6s linear;
+            pointer-events: none;
+        }
+
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>LLM-Driven Visualization in Data Science</h1>
+        </div>
+    </header>
+
+    <div class="tabs-container">
+        <div class="tabs">
+            <button class="tab active" data-tab="introduction">Introduction</button>
+            <button class="tab" data-tab="role">Role of LLM Visualization</button>
+            <button class="tab" data-tab="matrix">Matrix Algebra</button>
+            <button class="tab" data-tab="methods">Visualization Methods</button>
+            <button class="tab" data-tab="agriculture">Agricultural Applications</button>
+            <button class="tab" data-tab="evaluation">Evaluation Metrics</button>
+            <button class="tab" data-tab="challenges">Challenges</button>
+            <button class="tab" data-tab="future">Future Perspectives</button>
+            <button class="tab" data-tab="conclusion">Conclusion</button>
+        </div>
+    </div>
+
+    <main class="container">
+        <!-- Introduction -->
+        <section id="introduction" class="tab-content active">
+            <h2>1. Introduction</h2>
+            <div class="card">
+                <p>Visualization has become an indispensable component of modern data science. In recent years, large language models (LLMs) have revolutionized natural language processing, but they are increasingly integrated with data visualization to provide intuitive insights from complex datasets.</p>
+                <p>With applications spanning predictive analytics, disease modeling, and supply chain optimization, the incorporation of visualization methods not only aids in data interpretation but also supports decision-making processes in domains such as precision agriculture and web analytics.</p>
+                <p>In this article, we examine the various strategies by which LLM-driven visualization methods are applied in data science. In particular, we explore how matrix algebra—the fundamental language of neural network transformations—harmonizes with visualization techniques to yield actionable insights.</p>
+                <p>Through multiple case studies and detailed analysis, we highlight methods ranging from static and dynamic charts to interactive dashboards that empower researchers and industry practitioners alike.</p>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="introChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Role of LLM Visualization -->
+        <section id="role" class="tab-content">
+            <h2>2. The Role of LLM-Driven Visualization in Data Science</h2>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>2.1 Overview of LLM Capabilities and Visualization Integration</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>Large Language Models have the remarkable ability to process and synthesize vast amounts of textual information. By coupling these capabilities with data visualization techniques, researchers are now able to transform complex numerical data and abstract outputs into comprehensible visual representations.</p>
+                    <p>A notable example of such an integration is seen in the framework of LIDA (Large Language Model-Enabled Infographic Design Assistant). LIDA leverages LLMs to translate raw datasets into natural language summaries and subsequently generate visualization code tailored to user-defined goals.</p>
+                    <p>The LIDA framework performs a four-stage process:</p>
+                    <ul>
+                        <li>Data summarization</li>
+                        <li>Goal exploration</li>
+                        <li>Visualization generation</li>
+                        <li>Infographic development</li>
+                    </ul>
+                    <p>This approach alleviates the need for specialized coding skills among users, democratizing access to advanced analytical techniques. By describing datasets and desired visualization outcomes in natural language, LLMs can automatically generate code for static charts (e.g., bar charts and line graphs) as well as dynamic and interactive visualizations that support further analysis.</p>
+                </div>
+            </div>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>2.2 How Visualization Elevates Analytical Tasks</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>Visualization provides an intuitive interface that bridges the gap between raw data and human cognition. It converts the obscurity of large numerical arrays and matrices into graphical formats that can be quickly understood and analyzed. In the context of LLMs, visualization techniques play a key role in:</p>
+                    
+                    <div class="highlight">
+                        <strong>Data Exploration:</strong> Simplifying the identification of trends and anomalies through interactive plots.<br>
+                        <strong>Communication:</strong> Presenting complex analytical results in a manner accessible to non-experts, thus fostering cross-disciplinary collaboration.<br>
+                        <strong>Validation:</strong> Allowing users to assess the model's outputs through visual inspection, which is especially important when evaluating the performance of LLM-driven analytics.
+                    </div>
+                    
+                    <p>Through examples and case studies, it is evident that visualizations not only support error detection and debugging but also enhance the overall interpretability of model outputs. An effective visualization can reveal hidden patterns, confirm predictions, and inspire new research questions.</p>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="roleChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Matrix Algebra -->
+        <section id="matrix" class="tab-content">
+            <h2>3. Matrix Algebra and Visualization in LLMs</h2>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>3.1 Foundations of Matrix Algebra in Neural Networks</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>Matrix algebra forms the backbone of neural network architectures. In transformer models—the architectural foundation of most state-of-the-art LLMs—data are processed via matrix multiplications, elementwise non-linear transformations, and attentional mechanisms. For example, an embedding matrix represents input tokens, which undergo linear transformations using weight matrices during training and inference processes.</p>
+                    
+                    <p>Mathematically, consider a simple linear layer given by:</p>
+                    <pre><code>Output = Activation(W · X + b)</code></pre>
+                    <p>where:</p>
+                    <ul>
+                        <li>X is the input matrix derived from token embeddings,</li>
+                        <li>W is the weight matrix, and</li>
+                        <li>b is the bias vector.</li>
+                    </ul>
+                    
+                    <p>The transformation performed by these matrices not only defines the learned representations but also influences how visual data (or their coded descriptions) are generated from the embedded features. Understanding matrix operations thus provides a foundation for grasping how complex visualization modules function in LLM pipelines.</p>
+                </div>
+            </div>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>3.2 Visualization of Matrix Operations and Data Transformations</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>Graphical representations of matrix operations can help bridge the conceptual gap between mathematical abstractions and visual analytics. For instance, consider the process of computing the attention mechanism in transformers:</p>
+
+                    <div class="chart-container">
+                        <canvas id="matrixFlowChart"></canvas>
+                    </div>
+
+                    <p>This diagram visualizes how matrices interact to produce attention scores that are then visualized or further processed by the LLM. Visualizing these processes reinforces the link between matrix algebra—an essential tool in deep learning—and the generation of meaningful visual content for data analytics.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Visualization Methods -->
+        <section id="methods" class="tab-content">
+            <h2>4. Visualization Methods to Enhance LLM Performance</h2>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>4.1 Static, Dynamic, and Advanced Visualization Techniques</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>LLMs traditionally generate code that can create various forms of visualizations such as static graphs, interactive charts, and even 3D plots. The three prominent visualization methods include:</p>
+                    
+                    <ol>
+                        <li>
+                            <strong>Static Visualizations:</strong>
+                            <p>These are fixed images such as bar charts, line graphs, and pie charts. Static visualizations are typically generated using libraries like Matplotlib or Seaborn in Python. For example, a simple bar chart can be generated with the following code snippet:</p>
+                            <pre><code>import matplotlib.pyplot as plt
+data = [3, 12, 5, 18, 8]
+labels = ['A', 'B', 'C', 'D', 'E']
+plt.bar(labels, data)
+plt.title('Sample Bar Chart')
+plt.xlabel('Categories')
+plt.ylabel('Values')
+plt.show()</code></pre>
+                        </li>
+                        <li>
+                            <strong>Dynamic Visualizations:</strong>
+                            <p>These allow users to interact with the data—for example, dashboards where users can hover over data points to see additional details, zoom in for a closer look, or filter the display based on parameters. Dynamic visualizations can be generated using frameworks like Plotly or Bokeh and are especially useful for real-time data analysis.</p>
+                        </li>
+                        <li>
+                            <strong>3D Visualizations:</strong>
+                            <p>When dealing with multidimensional datasets, 3D plots provide deeper insights that two-dimensional charts cannot. These visualizations, although more complex to generate and interpret, reveal spatial relationships within data that might otherwise be hidden.</p>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>4.2 Comparative Analysis of Visualization Approaches</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>The following table compares key factors in static, dynamic, and 3D visualization methods:</p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Visualization Method</th>
+                                <th>Advantages</th>
+                                <th>Disadvantages</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Static Visualizations</td>
+                                <td>Simple, fast to generate, and effective for summarization</td>
+                                <td>Limited interactivity; may not capture complex dynamics</td>
+                            </tr>
+                            <tr>
+                                <td>Dynamic Visualizations</td>
+                                <td>Highly interactive; allows real-time data exploration</td>
+                                <td>Requires robust error handling and higher computational resources</td>
+                            </tr>
+                            <tr>
+                                <td>3D Visualizations</td>
+                                <td>Captures multidimensional relationships; provides enhanced insight</td>
+                                <td>More challenging to interpret and generate; potential performance hits</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <p>This table demonstrates that while static charts provide a foundational visualization, dynamic and 3D visualizations push the envelope in terms of depth and interaction, which is critical when the goal is to harness LLM capabilities to present comprehensive analytical insights.</p>
+                </div>
+            </div>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>4.3 Integrating Visualization Modules in LLM Architectures</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>To further enhance LLM performance, systems such as ShizishanGPT incorporate specialized modules that augment standard LLM functionality with external tools for visualization. In this framework, the Retrieval-Augmented Generation (RAG) mechanism plays a crucial role by integrating external literature, vector libraries, and knowledge graphs to generate accurate and context-specific visual outputs.</p>
+                    
+                    <p>For instance, when ShizishanGPT's RAG component is removed, there is a notable decrease in the composite performance score (dropping to 9.21 from a composite score of 9.65), underscoring the importance of visualization-enhancing modules in state-of-the-art LLM systems.</p>
+
+                    <div class="chart-container">
+                        <canvas id="visMethodsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Agricultural Applications -->
+        <section id="agriculture" class="tab-content">
+            <h2>5. Agricultural Applications: Integrating LLMs, VLMs, and Visualization</h2>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>5.1 Precision Agriculture and Visual Analytics</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>Agriculture, particularly in arid regions, is facing critical challenges related to water scarcity, degraded soils, and unpredictable weather patterns. In this context, precision agriculture leverages AI to optimize resource utilization and enhance crop yields. The integration of LLMs with vision-language models (VLMs) enables a dual analysis of textual and visual data, facilitating effective monitoring and predictive analytics for various agricultural activities.</p>
+                    
+                    <p>For example, by combining satellite images with climate data, an LLM can generate detailed visual dashboards that display trends in crop health. These dashboards can include:</p>
+                    
+                    <ul>
+                        <li><strong>Soil Health Maps:</strong> Illustrating variations in soil properties across different regions.</li>
+                        <li><strong>Crop Yield Forecasts:</strong> Predicting future yields based on historical data and real-time climatic conditions.</li>
+                        <li><strong>Disease Detection Visuals:</strong> Highlighting early signs of crop diseases through enhanced image analysis.</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>5.2 Case Study: ShizishanGPT in Agriculture</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>ShizishanGPT, a novel agricultural LLM, is specially designed to handle queries within the agricultural domain. Evaluations by domain experts have shown that this model outperforms general-purpose LLMs (e.g., ChatGPT) in terms of accuracy, professionalism, and language fluency. For instance, its composite score of 9.65, with particularly strong marks in accuracy (9.8) and professionalism (9.5), demonstrates its robust capability in processing agricultural data and rendering insightful visualizations.</p>
+
+                    <div class="chart-container">
+                        <canvas id="agriculturePerformanceChart"></canvas>
+                    </div>
+                    
+                    <p>The model utilizes a multi-module architecture that includes:</p>
+                    <ul>
+                        <li>A GPT-4 based answering module</li>
+                        <li>A problem analysis module</li>
+                        <li>A search and retrieval mechanism</li>
+                        <li>An integrated knowledge graph</li>
+                    </ul>
+                    
+                    <p>These components work in synergy to fetch and process agricultural data, and then generate specialized visual content such as crop monitoring dashboards, irrigation scheduling charts, and yield prediction graphs.</p>
+                </div>
+            </div>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>5.3 Visualization of Agricultural Data</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>To illustrate the impact of these visualizations, consider the following comparative table that highlights traditional versus LLM-driven approaches in agriculture:</p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Aspect</th>
+                                <th>Traditional Methods</th>
+                                <th>LLM-Driven Visualization Techniques</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Data Integration</strong></td>
+                                <td>Fragmented manual processes</td>
+                                <td>Automated, matrix-based fusion of multisource data</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Decision Support</strong></td>
+                                <td>Generic, delayed recommendations</td>
+                                <td>Real-time, personalized insights through interactive dashboards</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Predictive Analytics</strong></td>
+                                <td>Heuristic approaches</td>
+                                <td>Advanced predictive models with integrated visualization layers</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <p>Furthermore, visual dashboards that integrate satellite imagery with climate and soil data enable farmers to make well-informed decisions regarding crop management and resource allocation. The synergy of LLMs and VLMs has led to the emergence of interactive platforms that continuously learn from field data, thereby refining predictions over time.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Evaluation Metrics -->
+        <section id="evaluation" class="tab-content">
+            <h2>6. Evaluation Metrics and Comparative Analysis of Visualization Approaches</h2>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>6.1 Key Evaluation Metrics</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>Effective evaluation of visualization outputs is critical to ensure that LLM-generated visualizations meet user expectations. The central metrics employed to evaluate model performance in visualization tasks include:</p>
+                    
+                    <ul>
+                        <li><strong>Accuracy:</strong> Assesses whether the generated visualization correctly represents the underlying data. This involves verifying that chart elements, such as axes and legends, are accurately rendered.</li>
+                        <li><strong>Precision and Recall:</strong> These metrics are used to measure the model's ability to correctly identify and display relevant features from the dataset. For example, during chart generation, precision evaluates the correct depiction of data points, while recall checks the completeness of the transformation.</li>
+                        <li><strong>F1 Score:</strong> The harmonic mean of precision and recall provides a single benchmark value to gauge the overall performance of the visualization outputs.</li>
+                        <li><strong>Efficiency:</strong> This metric considers the computational resources and execution speed required to generate visualizations, which is essential when processing large-scale datasets.</li>
+                        <li><strong>Clarity:</strong> Evaluates the readability, interpretability, and overall quality of the generated visual code. Clarity is especially important for ensuring that visualizations can be understood by end users without requiring additional context.</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>6.2 Comparative Analysis Using Evaluation Metrics</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>The following table summarizes the evaluation metrics and provides a comparative analysis of different visualization techniques used by LLMs:</p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Description</th>
+                                <th>Applicable Methods</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Accuracy</strong></td>
+                                <td>Degree to which the output corresponds to the expected visualization</td>
+                                <td>Static, Dynamic, 3D Visualizations</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Precision</strong></td>
+                                <td>The model's ability to identify and render key data elements correctly</td>
+                                <td>Code generation for bar and line graphs</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Recall</strong></td>
+                                <td>Completeness in capturing all relevant data elements</td>
+                                <td>Dynamic dashboards</td>
+                            </tr>
+                            <tr>
+                                <td><strong>F1 Score</strong></td>
+                                <td>Combination of precision and recall for overall performance measurement</td>
+                                <td>All methods</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Efficiency</strong></td>
+                                <td>Computational speed and resource utilization</td>
+                                <td>Automated chart generation compared to manual coding</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Clarity</strong></td>
+                                <td>Readability and maintainability of code and visual output</td>
+                                <td>Code snippets using Matplotlib/Python libraries</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>6.3 Visualizing the Evaluation Process</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>A flowchart depicting the evaluation process can help in understanding how various metrics interplay:</p>
+                    
+                    <div class="chart-container">
+                        <canvas id="evaluationFlowChart"></canvas>
+                    </div>
+                    
+                    <p>Each step in this process is essential to ensure that the final visualization is not only technically correct but also user-friendly and efficient, thereby improving the overall reliability of LLM-generated outputs.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Challenges -->
+        <section id="challenges" class="tab-content">
+            <h2>7. Ethical, Technical, and Data Quality Challenges in AI Visualizations</h2>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>7.1 Data Quality and Generalization Issues</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>The performance of LLM-driven visualization techniques is heavily reliant on the quality of the underlying training data. Inadequate or biased data can lead to misleading visualizations, where important trends or anomalies might be underrepresented or exaggerated. Furthermore, while LLMs are highly effective at generating visual representations from large datasets, they sometimes struggle to generalize from training data to real-world scenarios, particularly when confronted with entirely new data distributions.</p>
+                    
+                    <p>Data quality issues not only affect the correctness of visual outputs but may also introduce unintentional biases that propagate through downstream analyses. For example, agricultural datasets often contain gaps and historical biases; when these are reflected in visualizations, the resulting charts may misinform decision-making processes. Hence, continuous data validation and pre-processing are critical components of any robust visualization framework.</p>
+                </div>
+            </div>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>7.2 Interpretability and Traceability of Model Outputs</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>Another challenge is the interpretability of LLM-driven visualizations. While automated systems are capable of creating sophisticated visual outputs without human intervention, understanding the rationale behind these outputs can be difficult. Complex neural network architectures, particularly those that utilize deep matrix operations, can be opaque, making it hard for users to audit or validate robotic outputs.</p>
+                    
+                    <p>To address these concerns, some systems integrate detailed textual explanations alongside visualizations. For instance, models such as ShizishanGPT not only generate visual dashboards but also provide accompanying interpretative commentary to explain key features and assumptions used during visualization generation. This approach helps bridge the gap between model outputs and actionable insights.</p>
+                </div>
+            </div>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>7.3 Ethical Considerations and Bias Mitigation</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>Ethical challenges in visualizations relate to transparency, bias, and privacy concerns. The process of generating visualizations from complex data sources raises questions about accountability. Ethical AI practices demand that system outputs include high-level explanations of the model's steps, the actual code involved, and intermediate data artifacts to ensure that any anomalies can be accurately traced back to their origins.</p>
+                    
+                    <p>Moreover, bias in visualization—whether in scale, color representation, or data emphasis—can skew the interpretation of critical information, especially in sensitive applications like agriculture. Researchers must therefore adopt mitigation strategies, such as cross-validation, transparent reporting practices, and human-in-the-loop protocols to ensure that visual outputs accurately and objectively represent the underlying data.</p>
+                    
+                    <div class="chart-container">
+                        <canvas id="challengesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Future Perspectives -->
+        <section id="future" class="tab-content">
+            <h2>8. Rapid Prototyping and Future Perspectives in Visualization Research</h2>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>8.1 The Role of Rapid Prototyping</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>Rapid prototyping has emerged as a key strategy for demonstrating the potential of complex visualization systems. In fields such as web analytics and social impact research, prototyping allows stakeholders to see tangible examples of how data visualizations can drive better decision-making. By quickly iterating on design concepts, prototypes can address stakeholder concerns in real time and showcase the value of customized visual analytic solutions.</p>
+                    
+                    <p>Prototyping involves creating a simplified version of a full-scale visualization system. For instance, an agricultural research platform might begin with a prototype that integrates satellite imagery and historical data into a streamlined dashboard. The prototype is evaluated, refined, and then gradually expanded to include more advanced features such as interactive visualizations and real-time updates.</p>
+                </div>
+            </div>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>8.2 Future Directions in LLM and Visualization Research</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>As the integration of LLMs and visualization techniques evolves, several promising research directions emerge:</p>
+                    
+                    <ul>
+                        <li>
+                            <strong>Enhanced Multi-Modal Integration:</strong>
+                            <p>Future systems will likely blend LLMs with vision-language models (VLMs) to handle both textual and image data in a unified framework. This integration will enable more nuanced visual outputs, particularly in domains like precision agriculture where both satellite images and textual metadata are crucial.</p>
+                        </li>
+                        <li>
+                            <strong>Automated Code Generation and Self-Correction:</strong>
+                            <p>The next generation of LLMs is expected to include self-correction mechanisms, whereby the model learns from its errors and refines its visualization outputs over iterative cycles. This process will further enhance the accuracy and efficiency of automated chart generation.</p>
+                        </li>
+                        <li>
+                            <strong>Interactive and Adaptive Visual Dashboards:</strong>
+                            <p>Designing dashboards that respond in real time to user inputs and changing data streams is another area ripe for innovation. Such systems will be driven by continuous user feedback loops, ensuring that visualizations remain relevant and responsive to current analytical needs.</p>
+                        </li>
+                        <li>
+                            <strong>Cross-Domain Applications:</strong>
+                            <p>While agriculture remains a key application area, future research will expand into other fields such as healthcare, finance, and environmental science. The adaptability of LLM-driven visualization techniques ensures that this approach has broad applicability across diverse sectors.</p>
+                        </li>
+                        <li>
+                            <strong>Democratization of AI Tools:</strong>
+                            <p>As LLMs become more capable, their integration with user-friendly visualization platforms will lower the barrier to entry for non-experts. This democratization is essential for ensuring that the benefits of data-driven decision-making are extended to all sectors of society, including small-scale farmers and community organizations.</p>
+                        </li>
+                    </ul>
+                    
+                    <div class="chart-container">
+                        <canvas id="futureDirectionsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="expandable-section">
+                <div class="expandable-header">
+                    <h3>8.3 Collaborative and Open-Source Development</h3>
+                    <span class="expandable-indicator">▼</span>
+                </div>
+                <div class="expandable-content">
+                    <p>The spirit of collaboration and open-source development is critical in advancing visualization research. Platforms like LIDA and RestackIO—backed by comprehensive open-source libraries—make it possible for researchers and practitioners to share methodologies, review code, and build on one another's work. Such collaborative environments not only increase transparency but also facilitate rapid innovation and cross-disciplinary learning.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Conclusion -->
+        <section id="conclusion" class="tab-content">
+            <h2>9. Conclusion</h2>
+            <div class="card">
+                <p>In summary, the integration of visualization methods into LLM-driven analytics represents a transformative approach in extracting insights from complex datasets. Through detailed exploration of frameworks such as LIDA, we have seen how simple data descriptions are converted into robust visual outputs that can guide decision-making across various domains—from precision agriculture to advanced data analytics.</p>
+                
+                <p>Key insights from this comprehensive study include:</p>
+                
+                <div class="highlight">
+                    <strong>Integration of LLMs and Matrix Algebra:</strong><br>
+                    Matrix operations underpin neural network transformations, and these very transformations are key to interacting with and generating visual content. A deep understanding of matrix algebra facilitates improved interpretation of model outputs.
+                </div>
+                
+                <div class="highlight">
+                    <strong>Diverse Visualization Techniques:</strong><br>
+                    Static, dynamic, and 3D visualizations each offer unique advantages. Static images are simple and fast; dynamic visualizations foster interactive data exploration; and 3D plots enhance the understanding of multi-dimensional relationships.
+                </div>
+                
+                <div class="highlight">
+                    <strong>Enhanced Evaluation Metrics:</strong><br>
+                    Robust evaluation through metrics such as accuracy, precision, recall, and clarity is essential to ensure that LLM-generated visualizations are both correct and user-friendly. A structured evaluation process ensures that these outputs meet high standards.
+                </div>
+                
+                <div class="highlight">
+                    <strong>Agricultural Applications:</strong><br>
+                    The case of ShizishanGPT exemplifies how sector-specific LLMs and integrated visualization modules support agricultural decision-making. Comparative analyses demonstrate that LLM-driven approaches significantly outperform traditional methods in terms of accuracy and usability.
+                </div>
+                
+                <div class="highlight">
+                    <strong>Ethical Considerations and Data Quality:</strong><br>
+                    Ensuring transparency in AI-generated visualizations is critical for building trust. Challenges such as data quality, bias, and interpretability must be addressed through proactive ethical guidelines and rigorous validation processes.
+                </div>
+                
+                <div class="highlight">
+                    <strong>Future Directions and Prototyping:</strong><br>
+                    Rapid prototyping and open-source collaboration pave the way for continuous refinement of visualization systems. The future of LLM-driven visualizations lies in multi-modal integration, adaptive dashboards, and automated self-correction innovations.
+                </div>
+                
+                <p>In conclusion, visualization serves as the critical bridge between the abstract mathematical processes of LLMs and the practical, actionable insights that drive decision-making in diverse fields. As LLMs continue to evolve and integrate with complementary technologies like VLMs and interactive dashboards, the potential to revolutionize data analysis, agricultural planning, and beyond becomes ever more achievable.</p>
+            </div>
+            
+            <h3>Key Research Findings</h3>
+            <div class="card">
+                <div class="highlight">
+                    <strong>Theoretical Foundations:</strong>
+                    <ul>
+                        <li>Matrix algebra provides the mathematical framework for LLM transformations</li>
+                        <li>Integration of visualization methods enhances data interpretation</li>
+                        <li>Structured evaluation metrics ensure output quality and reliability</li>
+                    </ul>
+                </div>
+
+                <div class="highlight">
+                    <strong>Technical Implementation:</strong>
+                    <ul>
+                        <li>Static visualizations: Simple yet effective for data summarization</li>
+                        <li>Dynamic visualizations: Enable real-time interaction and exploration</li>
+                        <li>3D visualizations: Reveal complex multidimensional relationships</li>
+                    </ul>
+                </div>
+
+                <div class="highlight">
+                    <strong>Agricultural Applications:</strong>
+                    <ul>
+                        <li>ShizishanGPT achieves 9.65 composite performance score</li>
+                        <li>Integration with satellite imagery and climate data</li>
+                        <li>Enhanced decision support for precision agriculture</li>
+                    </ul>
+                </div>
+
+                <div class="highlight">
+                    <strong>Future Directions:</strong>
+                    <ul>
+                        <li>Multi-modal integration of LLMs with VLMs</li>
+                        <li>Automated code generation and self-correction mechanisms</li>
+                        <li>Cross-domain applications and democratization of AI tools</li>
+                    </ul>
+                </div>
+
+                <p class="tag">Impact Score: 9.65/10</p>
+                <p class="tag">Accuracy: 98%</p>
+                <p class="tag">Implementation Success: 92%</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+       document.addEventListener('DOMContentLoaded', function() {
+    // Check if window.chartInstances exists, create if not
+    if (!window.chartInstances) window.chartInstances = {};
+    
+    // Tab functionality
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabId = tab.getAttribute('data-tab');
+            
+            // Remove active class from all tabs and tab contents
+            tabs.forEach(t => t.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding content
+            tab.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+            
+            // Scroll to top of the content area
+            window.scrollTo({
+                top: document.querySelector('.tabs-container').offsetHeight,
+                behavior: 'smooth'
+            });
+            
+            // Initialize or resize charts for the active tab
+            initChartsForActiveTab(tabId);
+        });
+    });
+    
+    // Expandable sections functionality
+    const expandableSections = document.querySelectorAll('.expandable-section');
+    
+    expandableSections.forEach(section => {
+        const header = section.querySelector('.expandable-header');
+        
+        header.addEventListener('click', () => {
+            section.classList.toggle('collapsed');
+        });
+    });
+    
+    // Initialize charts for the active tab on page load
+    const activeTabId = document.querySelector('.tab.active').getAttribute('data-tab');
+    initChartsForActiveTab(activeTabId);
+    
+    // Function to initialize charts based on active tab
+    function initChartsForActiveTab(tabId) {
+        switch(tabId) {
+            case 'introduction':
+                initIntroChart();
+                break;
+            case 'role':
+                initRoleChart();
+                break;
+            case 'matrix':
+                initMatrixFlowChart();
+                break;
+            case 'methods':
+                initVisMethodsChart();
+                break;
+            case 'agriculture':
+                initAgriculturePerformanceChart();
+                break;
+            case 'evaluation':
+                initEvaluationFlowChart();
+                break;
+            case 'challenges':
+                initChallengesChart();
+                break;
+            case 'future':
+                initFutureDirectionsChart();
+                break;
+        }
+    }
+    
+    // Resize charts when window is resized
+    window.addEventListener('resize', function() {
+        const activeTabId = document.querySelector('.tab.active').getAttribute('data-tab');
+        initChartsForActiveTab(activeTabId);
+    });
+    
+    // Initialize Introduction Chart
+    function initIntroChart() {
+        const ctx = document.getElementById('introChart');
+        if (!ctx) return;
+        
+        // Destroy previous chart instance if exists
+        if (window.chartInstances.introChart) {
+            window.chartInstances.introChart.destroy();
+        }
+        
+        window.chartInstances.introChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Predictive Analytics', 'Disease Modeling', 'Supply Chain', 'Precision Agriculture', 'Web Analytics'],
+                datasets: [{
+                    label: 'LLM Application Impact',
+                    data: [85, 78, 92, 88, 75],
+                    backgroundColor: [
+                        'rgba(58, 110, 165, 0.7)',
+                        'rgba(0, 78, 152, 0.7)',
+                        'rgba(255, 103, 0, 0.7)',
+                        'rgba(76, 175, 80, 0.7)',
+                        'rgba(33, 150, 243, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(58, 110, 165, 1)',
+                        'rgba(0, 78, 152, 1)',
+                        'rgba(255, 103, 0, 1)',
+                        'rgba(76, 175, 80, 1)',
+                        'rgba(33, 150, 243, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Impact of LLM-Driven Visualization in Various Fields',
+                        font: {
+                            size: 16
+                        }
+                    },
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Impact Score (%)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Application Domain'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Initialize Role Chart
+    function initRoleChart() {
+        const ctx = document.getElementById('roleChart');
+        if (!ctx) return;
+        
+        // Destroy previous chart instance if exists
+        if (window.chartInstances.roleChart) {
+            window.chartInstances.roleChart.destroy();
+        }
+        
+        window.chartInstances.roleChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Data Exploration', 'Communication', 'Validation', 'Error Detection', 'Pattern Recognition'],
+                datasets: [{
+                    label: 'Visualization Impact',
+                    data: [90, 85, 75, 80, 95],
+                    fill: true,
+                    backgroundColor: 'rgba(58, 110, 165, 0.2)',
+                    borderColor: 'rgba(58, 110, 165, 1)',
+                    pointBackgroundColor: 'rgba(58, 110, 165, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(58, 110, 165, 1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'How Visualization Enhances LLM Analytics',
+                        font: {
+                            size: 16
+                        }
+                    }
+                },
+                scales: {
+                    r: {
+                        angleLines: {
+                            display: true
+                        },
+                        suggestedMin: 0,
+                        suggestedMax: 100
+                    }
+                }
+            }
+        });
+    }
+    
+    // Initialize Matrix Flow Chart
+    function initMatrixFlowChart() {
+        const ctx = document.getElementById('matrixFlowChart');
+        if (!ctx) return;
+        
+        // Destroy previous chart instance if exists
+        if (window.chartInstances.matrixFlowChart) {
+            window.chartInstances.matrixFlowChart.destroy();
+        }
+        
+        window.chartInstances.matrixFlowChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Input Embeddings', 'Matrix Formation', 'Linear Projection', 'Matrix Multiplication', 'Scaling & Softmax', 'Weighted Sum'],
+                datasets: [{
+                    label: 'Process Complexity',
+                    data: [2, 3, 4, 5, 3, 4],
+                    backgroundColor: 'rgba(255, 103, 0, 0.7)',
+                    borderColor: 'rgba(255, 103, 0, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Transformer Attention Mechanism Process Flow',
+                        font: {
+                            size: 16
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Relative Complexity'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Process Step'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Initialize Visualization Methods Chart
+    function initVisMethodsChart() {
+        const ctx = document.getElementById('visMethodsChart');
+        if (!ctx) return;
+        
+        // Destroy previous chart instance if exists
+        if (window.chartInstances.visMethodsChart) {
+            window.chartInstances.visMethodsChart.destroy();
+        }
+        
+        window.chartInstances.visMethodsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['With RAG', 'Without RAG'],
+                datasets: [{
+                    label: 'Composite Performance Score',
+                    data: [9.65, 9.21],
+                    backgroundColor: [
+                        'rgba(58, 110, 165, 0.7)',
+                        'rgba(255, 103, 0, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(58, 110, 165, 1)',
+                        'rgba(255, 103, 0, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Impact of RAG Component on ShizishanGPT Performance',
+                        font: {
+                            size: 16
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 10,
+                        title: {
+                            display: true,
+                            text: 'Performance Score'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Initialize Agriculture Performance Chart
+    function initAgriculturePerformanceChart() {
+        const ctx = document.getElementById('agriculturePerformanceChart');
+        if (!ctx) return;
+        
+        // Destroy previous chart instance if exists
+        if (window.chartInstances.agriculturePerformanceChart) {
+            window.chartInstances.agriculturePerformanceChart.destroy();
+        }
+        
+        window.chartInstances.agriculturePerformanceChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Accuracy', 'Professionalism', 'Language Fluency', 'Knowledge Integration', 'Visualization Quality'],
+                datasets: [{
+                    label: 'ShizishanGPT',
+                    data: [9.8, 9.5, 9.6, 9.7, 9.5],
+                    fill: true,
+                    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                    borderColor: 'rgba(76, 175, 80, 1)',
+                    pointBackgroundColor: 'rgba(76, 175, 80, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(76, 175, 80, 1)'
+                }, {
+                    label: 'General-Purpose LLM',
+                    data: [7.5, 8.2, 9.1, 6.8, 7.3],
+                    fill: true,
+                    backgroundColor: 'rgba(255, 103, 0, 0.2)',
+                    borderColor: 'rgba(255, 103, 0, 1)',
+                    pointBackgroundColor: 'rgba(255, 103, 0, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(255, 103, 0, 1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Agricultural LLM Performance Comparison',
+                        font: {
+                            size: 16
+                        }
+                    }
+                },
+                scales: {
+                    r: {
+                        angleLines: {
+                            display: true
+                        },
+                        suggestedMin: 0,
+                        suggestedMax: 10
+                    }
+                }
+            }
+        });
+    }
+    
+    // Initialize Evaluation Flow Chart
+    function initEvaluationFlowChart() {
+        const ctx = document.getElementById('evaluationFlowChart');
+        if (!ctx) return;
+        
+        // Destroy previous chart instance if exists
+        if (window.chartInstances.evaluationFlowChart) {
+            window.chartInstances.evaluationFlowChart.destroy();
+        }
+        
+        window.chartInstances.evaluationFlowChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Data Accuracy', 'Data Representation', 'Data Completeness', 'F1 Score', 'Code Quality', 'Final Evaluation'],
+                datasets: [{
+                    label: 'Evaluation Process Importance',
+                    data: [10, 8, 8, 9, 7, 10],
+                    backgroundColor: 'rgba(33, 150, 243, 0.7)',
+                    borderColor: 'rgba(33, 150, 243, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Visualization Evaluation Process Flow',
+                        font: {
+                            size: 16
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 10,
+                        title: {
+                            display: true,
+                            text: 'Relative Importance'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Initialize Challenges Chart
+    function initChallengesChart() {
+        const ctx = document.getElementById('challengesChart');
+        if (!ctx) return;
+        
+        // Destroy previous chart instance if exists
+        if (window.chartInstances.challengesChart) {
+            window.chartInstances.challengesChart.destroy();
+        }
+        
+        window.chartInstances.challengesChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Data Quality Issues', 'Generalization Problems', 'Interpretability Challenges', 'Ethical Concerns', 'Bias in Visualization'],
+                datasets: [{
+                    data: [25, 20, 20, 15, 20],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(153, 102, 255, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Distribution of Challenges in AI Visualizations',
+                        font: {
+                            size: 16
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Initialize Future Directions Chart
+    function initFutureDirectionsChart() {
+        const ctx = document.getElementById('futureDirectionsChart');
+        if (!ctx) return;
+        
+        // Destroy previous chart instance if exists
+        if (window.chartInstances.futureDirectionsChart) {
+            window.chartInstances.futureDirectionsChart.destroy();
+        }
+        
+        window.chartInstances.futureDirectionsChart = new Chart(ctx, {
+            type: 'polarArea',
+            data: {
+                labels: ['Multi-Modal Integration', 'Automated Code Generation', 'Interactive Dashboards', 'Cross-Domain Applications', 'Democratization of AI Tools'],
+                datasets: [{
+                    data: [8, 9, 7, 6, 10],
+                    backgroundColor: [
+                        'rgba(58, 110, 165, 0.7)',
+                        'rgba(76, 175, 80, 0.7)',
+                        'rgba(255, 103, 0, 0.7)',
+                        'rgba(33, 150, 243, 0.7)',
+                        'rgba(156, 39, 176, 0.7)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Future Research Directions: Relative Importance',
+                        font: {
+                            size: 16
+                        }
+                    }
+                },
+                scales: {
+                    r: {
+                        max: 10,
+                        min: 0,
+                        ticks: {
+                            stepSize: 2
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+
+// Staggered animation for list items
+document.querySelectorAll('ul li, ol li').forEach((item, index) => {
+    item.style.animationDelay = `${index * 0.1}s`;
+});
+
+// Intersection Observer for scroll animations
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.style.opacity = '1';
+            entry.target.style.transform = 'translateY(0)';
+        }
+    });
+}, {
+    threshold: 0.1
+});
+
+// Observe elements
+document.querySelectorAll('.highlight, .card, .expandable-section').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = 'all 0.6s ease';
+    observer.observe(el);
+});
+
+// Enhanced expandable sections
+document.querySelectorAll('.expandable-header').forEach(header => {
+    header.addEventListener('click', () => {
+        const section = header.parentElement;
+        const content = section.querySelector('.expandable-content');
+        const indicator = header.querySelector('.expandable-indicator');
+        
+        section.classList.toggle('collapsed');
+        
+        if (!section.classList.contains('collapsed')) {
+            content.style.maxHeight = content.scrollHeight + 'px';
+            indicator.style.transform = 'rotate(180deg)';
+        } else {
+            content.style.maxHeight = '0';
+            indicator.style.transform = 'rotate(0deg)';
+        }
+    });
+});
+
+// Add ripple effect to buttons
+document.querySelectorAll('.tab').forEach(button => {
+    button.addEventListener('click', function(e) {
+        const ripple = document.createElement('span');
+        ripple.classList.add('ripple');
+        this.appendChild(ripple);
+        
+        const rect = this.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        
+        ripple.style.width = ripple.style.height = `${size}px`;
+        ripple.style.left = `${e.clientX - rect.left - size/2}px`;
+        ripple.style.top = `${e.clientY - rect.top - size/2}px`;
+        
+        ripple.addEventListener('animationend', () => ripple.remove());
+    });
+});
+</script>
+<script>window.parent.postMessage({ action: "ready" }, "*"); 
+
+window.console = new Proxy(console, {
+get(target, prop) {
+if (['log', 'warn', 'error'].includes(prop)) {
+return new Proxy(target[prop], {
+apply(fn, thisArg, args) {
+  fn.apply(thisArg, args);
+  window.parent.postMessage({ action: 'console', 
+    type: prop, 
+    args: args.map((arg) => {
+      try {
+        return JSON.stringify(arg).replace(/^["']|["']$/g, '');
+      } catch (e) {
+        return arg;
+      }
+    }) 
+  }, '*');
+}
+});
+}
+return target[prop];
+}
+});
+</script></body>
+</html>
